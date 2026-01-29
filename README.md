@@ -141,10 +141,11 @@ Run tests: pytest
 
 ## Publishing to PyPI
 
+```text
 Update version in pyproject.toml.
 Build: python -m build
 Upload: twine upload dist/*
-
+```
 
 ## To test locally
 
