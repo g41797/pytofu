@@ -81,7 +81,6 @@ pyproject.toml
 
 ```toml
 #### pyproject.toml
-```toml
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
