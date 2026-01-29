@@ -6,7 +6,7 @@ A simple Python package that prints "Hello tofu" via a console script.
 
 ```bash
 pip install pytofu
-
+```
 
 ## Directory structure
 
@@ -52,7 +52,8 @@ launch.json
             "justMyCode": true
         }
     ]
-}```
+}
+```
 
 settings.json
 
@@ -73,7 +74,8 @@ settings.json
         "editor.defaultFormatter": "ms-python.black-formatter",
         "editor.formatOnSave": true
     }
-}```
+}
+```
 
 pyproject.toml
 
