@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pytofu"
+version = "0.1.0"
+description = "A simple Python package that prints 'Hello tofu'."
+readme = "README.md"
+authors = [{ name = "g41797", email = "g41797@gmail.com" }]
+license = "MIT"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+requires-python = ">=3.14"
+
+[project.urls]
+Homepage = "https://github.com/g41797/pytofu"
+Repository = "https://github.com/g41797/pytofu.git"
+Issues = "https://github.com/g41797/pytofu/issues"
+
+[project.scripts]
+pytofu = "pytofu:main"
