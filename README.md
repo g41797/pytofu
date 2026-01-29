@@ -131,3 +131,23 @@ def test_main(capsys):
     captured = capsys.readouterr()
     assert captured.out.strip() == "Hello tofu"
 ```
+
+## Development
+
+Open in VSCode for pre-configured settings (linting with mypy, formatting with black, testing with pytest).
+Install dev deps: pip install -e .[dev] (add [dev] extras in pyproject.toml if needed).
+Run tests: pytest
+
+## Publishing to PyPI
+
+Update version in pyproject.toml.
+Build: python -m build
+Upload: twine upload dist/*
+
+
+## To test locally
+
+```text
+pip install -e 
+pytofu
+```
