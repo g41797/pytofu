@@ -1,0 +1,42 @@
+
+Manual publishing from local repo
+
+  Test PyPI first (recommended)
+      twine upload --repository testpypi dist/* 
+
+  Then production PyPI
+        twine upload dist/*     
+
+Created two workflows:                                                                                                                            
+                                                                                                                                                    
+  .github/workflows/test.yml - Runs on push/PR to main:                                                                                             
+  - Runs pytest                                                                                                                                     
+  - Runs ruff linting                                                                                                                               
+  - Verifies package builds                                                                                                                         
+                                                                                                                                                    
+  .github/workflows/publish.yml - Runs on GitHub Release:                                                                                           
+  - Builds package                                                                                                                                  
+  - Publishes to TestPyPI first                                                                                                                     
+  - Then publishes to PyPI                                                                                                                          
+                                                                                                                                                    
+  Setup steps on GitHub/PyPI:                                                                                                                       
+                                                                                                                                                    
+  1. Create GitHub environments (Settings → Environments):                                                                                          
+    - testpypi                                                                                                                                      
+    - pypi                                                                                                                                          
+  2. Configure PyPI Trusted Publishing (pypi.org → Account → Publishing):                                                                           
+    - Add pending publisher:                                                                                                                        
+        - Owner: g41797                                                                                                                             
+      - Repository: pytofu                                                                                                                          
+      - Workflow: publish.yml                                                                                                                       
+      - Environment: pypi                                                                                                                           
+  3. Configure TestPyPI (test.pypi.org → same steps):                                                                                               
+    - Environment: testpypi                                                                                                                         
+                                                                                                                                                    
+  To publish:                                                                                                                                       
+  1. Update version in pyproject.toml                                                                                                               
+  2. Commit and push to main                                                                                                                        
+  3. Create a GitHub Release (e.g., tag v0.1.0)                                                                                                     
+  4. Workflow runs automatically
+
+  

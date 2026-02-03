@@ -9,8 +9,11 @@ description = "A simple Python package that prints 'Hello tofu'."
 readme = "README.md"
 authors = [{ name = "g41797", email = "g41797@gmail.com" }]
 license = "MIT"
+keywords = ["hello", "tofu", "example"]
 classifiers = [
+    "Development Status :: 4 - Beta",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.14",
     "Operating System :: OS Independent",
 ]
 requires-python = ">=3.14"
