@@ -1,9 +1,0 @@
-[submodule "/home/g41797/dev/root/github.com/g41797/pytofu/porting/repos/tofu"]
-	path = /home/g41797/dev/root/github.com/g41797/pytofu/porting/repos/tofu
-	url = https://github.com/g41797/tofu.git
-[submodule "/home/g41797/dev/root/github.com/g41797/pytofu/porting/repos/mailbox"]
-	path = /home/g41797/dev/root/github.com/g41797/pytofu/porting/repos/mailbox
-	url = https://github.com/g41797/mailbox.git
-[submodule "/home/g41797/dev/root/github.com/g41797/pytofu/porting/repos/nats"]
-	path = /home/g41797/dev/root/github.com/g41797/pytofu/porting/repos/nats
-	url = https://github.com/g41797/nats.git
