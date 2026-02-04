@@ -1,0 +1,9 @@
+[submodule "porting/repos/tofu"]
+	path = porting/repos/tofu
+	url = https://github.com/g41797/tofu.git
+[submodule "porting/repos/mailbox"]
+	path = porting/repos/mailbox
+	url = https://github.com/g41797/mailbox.git
+[submodule "porting/repos/nats"]
+	path = porting/repos/nats
+	url = https://github.com/g41797/nats.git
