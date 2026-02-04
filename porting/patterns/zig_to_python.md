@@ -2,17 +2,75 @@
 
 This document outlines common patterns and best practices for translating core Zig idioms and concepts into their Python equivalents, specifically for the `pytofu` project.
 
+**Target Python Version:** 3.14+
+
 ## 1. Tagged Unions
 - **Zig Concept**: `union(enum) { Foo: FooType, Bar: BarType }`
-- **Python Idiom**: Use `dataclasses` or classes combined with `typing.Union` and `isinstance()` checks.
+- **Python Idiom**: Use `dataclasses` with `match`/`case` structural pattern matching (PEP 634).
 
-## 2. Errors and Error Handling
-- **Zig Concept**: Error sets (`error{Foo, Bar}`) and explicit propagation.
-- **Python Idiom**: Custom exception classes inheriting from `Exception` and `try...except` blocks.
+```python
+from dataclasses import dataclass
 
-## 3. Interfaces (Duck Typing / ABCs)
+@dataclass
+class Connected:
+    address: str
+
+@dataclass
+class Disconnected:
+    reason: str
+
+@dataclass
+class Error:
+    code: int
+
+type ConnectionState = Connected | Disconnected | Error
+
+def handle_state(state: ConnectionState) -> str:
+    match state:
+        case Connected(address=addr):
+            return f"Connected to {addr}"
+        case Disconnected(reason=reason):
+            return f"Disconnected: {reason}"
+        case Error(code=code):
+            return f"Error code: {code}"
+```
+
+## 2. Errors and Error Handling (Overview)
+- **Zig Concept**: Error sets (`error{Foo, Bar}`) and explicit propagation via `try`/`catch`.
+- **Python Idiom**: pytofu uses a **hybrid approach**:
+  - **Internal code**: Returns `Result[T, E]` (errors as values) - see **Section 11**
+  - **Public API**: Raises exceptions at boundaries - see **Section 12**
+
+This matches Zig's explicit error handling internally while providing a Pythonic interface externally.
+
+## 3. Interfaces (Protocols)
 - **Zig Concept**: Structs with function pointers or implicit interfaces.
-- **Python Idiom**: Duck typing or `abc.ABC` (Abstract Base Classes) for explicit compliance.
+- **Python Idiom**: Use `typing.Protocol` (PEP 544) for structural ("duck") typing.
+
+```python
+from typing import Protocol
+
+class Sendable(Protocol):
+    """Any object with a send() method - no inheritance required."""
+    def send(self, data: bytes) -> int: ...
+
+class Closeable(Protocol):
+    """Any object with a close() method."""
+    def close(self) -> None: ...
+
+# Classes don't need to inherit - just implement the methods
+class Socket:
+    def send(self, data: bytes) -> int:
+        return len(data)
+
+    def close(self) -> None:
+        pass
+
+def send_message(channel: Sendable, data: bytes) -> int:
+    return channel.send(data)  # Socket works here without inheritance
+```
+
+**Why Protocol over ABC?** Protocols provide "static duck typing" - a closer match to Zig's implicit interfaces than ABC's explicit inheritance.
 
 ## 4. Structs
 - **Zig Concept**: `struct` for aggregate data types.
@@ -24,7 +82,9 @@ This document outlines common patterns and best practices for translating core Z
 
 ## 6. Thread-Safe Blocking Queues (MailBox)
 - **Zig Concept**: `MailBox` with interrupt and timeout.
-- **Python Idiom**: A custom class wrapping `collections.deque` and using `threading.Lock` and `threading.Condition` to mimic Zig's `interrupt()` and `close()` behavior.
+- **Python Idiom**: Custom implementation wrapping `collections.deque` with `threading.Lock` and `threading.Condition`.
+
+**Why not `queue.Queue`?** Python's standard `queue.Queue` provides thread-safe blocking with timeouts, but lacks Zig's critical `interrupt()` capability - the ability to wake blocked receivers immediately for shutdown signals. This requires a custom implementation with explicit condition variable signaling.
 
 ## 7. Temporary Files (temp.zig)
 - **Zig Concept**: Manual `TempDir` and `TempFile` management.
@@ -66,22 +126,18 @@ Python lacks pointers, so we cannot directly mutate a caller's variable. We need
 Use a lightweight wrapper class that holds the message reference and can be explicitly invalidated:
 
 ```python
-from typing import Optional, Generic, TypeVar
-
-T = TypeVar('T')
-
-class Holder(Generic[T]):
+class Holder[T]:
     """
     Wrapper that enforces single-use ownership semantics.
     Mimics Zig's *?*T pattern for preventing use-after-release.
     """
     __slots__ = ('_value',)
 
-    def __init__(self, value: Optional[T] = None):
-        self._value: Optional[T] = value
+    def __init__(self, value: T | None = None):
+        self._value: T | None = value
 
     @property
-    def value(self) -> Optional[T]:
+    def value(self) -> T | None:
         """Read current value (may be None if taken/released)."""
         return self._value
 
@@ -89,7 +145,7 @@ class Holder(Generic[T]):
         """Check if holder has been invalidated."""
         return self._value is None
 
-    def take(self) -> Optional[T]:
+    def take(self) -> T | None:
         """
         Extract the value and invalidate the holder.
         Equivalent to Zig's: val = holder.*; holder.* = null; return val;
@@ -98,7 +154,7 @@ class Holder(Generic[T]):
         self._value = None
         return val
 
-    def set(self, value: Optional[T]) -> None:
+    def set(self, value: T | None) -> None:
         """Set a new value (typically used after get from pool)."""
         self._value = value
 
@@ -318,6 +374,10 @@ def process_data():
     # ExitStack.__exit__ runs all callbacks in reverse order
 ```
 
+**Important distinction:**
+- `stack.push(obj)` - for objects implementing context manager protocol (`__enter__`/`__exit__`)
+- `stack.callback(func, *args)` - for raw cleanup functions without context manager support
+
 ### Python Idiom 3: `try/finally` for Simple Cases
 
 For straightforward single-resource cleanup without context manager support:
@@ -492,16 +552,17 @@ def create_engine(allocator: Allocator) -> Engine:
 A more elegant solution using a custom cleanup manager:
 
 ```python
+from typing import Callable
+
 class ErrDefer:
     """
     Mimics Zig's errdefer - cleanup only runs on exception.
     On successful exit (no exception), cleanup is skipped.
     """
-    __slots__ = ('_cleanups', '_success')
+    __slots__ = ('_cleanups',)
 
     def __init__(self):
         self._cleanups: list[tuple[Callable, tuple, dict]] = []
-        self._success = False
 
     def __enter__(self):
         return self
@@ -513,8 +574,12 @@ class ErrDefer:
                 try:
                     func(*args, **kwargs)
                 except Exception:
-                    pass  # Don't mask original exception
-        return False  # Don't suppress the exception
+                    # Intentionally suppressed: cleanup failures must not
+                    # mask the original exception that triggered errdefer.
+                    # This matches Zig's behavior where errdefer cleanup
+                    # errors don't replace the propagating error.
+                    pass
+        return False  # Don't suppress the original exception
 
     def register(self, func: Callable, *args, **kwargs) -> None:
         """Register cleanup to run only on error."""
@@ -774,19 +839,16 @@ Python's native error handling is exception-based. To match Zig's "errors as val
 
 ### Python Idiom: Result Type Pattern
 
-A `Result[T, E]` type that can hold either a success value or an error:
+A `Result[T, E]` type that can hold either a success value or an error.
+
+**Uses Python 3.12+ type syntax (PEP 695):**
 
 ```python
-from __future__ import annotations
-from typing import TypeVar, Generic, Union, Callable, Optional
 from dataclasses import dataclass
 from enum import IntEnum, auto
 
-T = TypeVar('T')
-E = TypeVar('E')
-
 @dataclass(frozen=True, slots=True)
-class Ok(Generic[T]):
+class Ok[T]:
     """Success variant of Result."""
     value: T
 
@@ -804,7 +866,7 @@ class Ok(Generic[T]):
 
 
 @dataclass(frozen=True, slots=True)
-class Err(Generic[E]):
+class Err[E]:
     """Error variant of Result."""
     error: E
 
@@ -814,15 +876,15 @@ class Err(Generic[E]):
     def is_err(self) -> bool:
         return True
 
-    def unwrap(self) -> None:
+    def unwrap[T](self) -> T:
         raise ResultUnwrapError(f"Called unwrap on Err: {self.error}")
 
-    def unwrap_or(self, default: T) -> T:
+    def unwrap_or[T](self, default: T) -> T:
         return default
 
 
-# Result is either Ok[T] or Err[E]
-Result = Union[Ok[T], Err[E]]
+# Result type alias (PEP 695 syntax)
+type Result[T, E] = Ok[T] | Err[E]
 
 
 class ResultUnwrapError(Exception):
@@ -875,8 +937,6 @@ class AmpeError(IntEnum):
 Internal functions return `Result[T, AmpeError]` instead of raising exceptions:
 
 ```python
-from typing import Optional
-
 def _create_message(allocator: Allocator) -> Result[Message, AmpeError]:
     """
     Internal: Create a new message.
@@ -889,21 +949,25 @@ def _create_message(allocator: Allocator) -> Result[Message, AmpeError]:
         return Err(AmpeError.ALLOCATION_FAILED)
 
     # Initialize body
-    result = msg.body.init(allocator, BODY_LEN)
-    if result.is_err():
-        msg.destroy()
-        return Err(AmpeError.ALLOCATION_FAILED)
+    match msg.body.init(allocator, BODY_LEN):
+        case Err():
+            msg.destroy()
+            return Err(AmpeError.ALLOCATION_FAILED)
+        case Ok():
+            pass
 
     # Initialize text headers
-    result = msg.thdrs.init(allocator, THDRS_LEN)
-    if result.is_err():
-        msg.destroy()
-        return Err(AmpeError.ALLOCATION_FAILED)
+    match msg.thdrs.init(allocator, THDRS_LEN):
+        case Err():
+            msg.destroy()
+            return Err(AmpeError.ALLOCATION_FAILED)
+        case Ok():
+            pass
 
     return Ok(msg)
 
 
-def _pool_get(pool: Pool, strategy: AllocationStrategy) -> Result[Optional[Message], AmpeError]:
+def _pool_get(pool: Pool, strategy: AllocationStrategy) -> Result[Message | None, AmpeError]:
     """
     Internal: Get message from pool.
     Equivalent to Zig's: fn _get(rtr: *Reactor, strategy: AllocationStrategy) AmpeError!?*Message
@@ -923,26 +987,38 @@ def _pool_get(pool: Pool, strategy: AllocationStrategy) -> Result[Optional[Messa
     return _create_message(pool.allocator)
 ```
 
+### Note on Allocator
+
+The `allocator` parameter in examples mirrors Zig's explicit allocator pattern. In pytofu, this represents **object pool management** and factory functions, not low-level memory allocation (which Python handles automatically). The Allocator abstraction enables:
+- Message pooling for performance
+- Tracking of allocated resources
+- Consistent cleanup patterns
+
 ### Error Propagation: `try_result` Helper
 
 Mimics Zig's `try` keyword for propagating errors:
 
 ```python
-def try_result(result: Result[T, E]) -> T:
+from functools import wraps
+from typing import Callable
+
+def try_result[T, E](result: Result[T, E]) -> T:
     """
     Equivalent to Zig's `try` keyword.
     If result is Ok, returns the value.
-    If result is Err, raises PropagateError to be caught by caller.
+    If result is Err, raises _PropagateError to be caught by decorator.
 
     Usage:
         value = try_result(some_function())  # Propagates error if Err
     """
-    if isinstance(result, Ok):
-        return result.value
-    raise _PropagateError(result.error)
+    match result:
+        case Ok(value):
+            return value
+        case Err(error):
+            raise _PropagateError(error)
 
 
-class _PropagateError(Exception):
+class _PropagateError[E](Exception):
     """Internal exception for error propagation within Result-based code."""
     __slots__ = ('error',)
 
@@ -951,7 +1027,7 @@ class _PropagateError(Exception):
         super().__init__()
 
 
-def with_error_propagation(func: Callable[..., Result[T, E]]) -> Callable[..., Result[T, E]]:
+def with_error_propagation[T, E](func: Callable[..., Result[T, E]]) -> Callable[..., Result[T, E]]:
     """
     Decorator that catches _PropagateError and converts to Err.
     Enables try_result() to work like Zig's try.
@@ -964,6 +1040,8 @@ def with_error_propagation(func: Callable[..., Result[T, E]]) -> Callable[..., R
             return Err(e.error)
     return wrapper
 ```
+
+> **⚠️ Performance Warning:** The `try_result` pattern uses internal exception raising/catching to simulate Zig's `try`. While architecturally clean, Python exception handling has overhead. In high-throughput message processing paths, consider using explicit `match` statements on Result instead of `try_result` for hot code paths.
 
 **Usage - matching Zig's try pattern:**
 
@@ -986,17 +1064,21 @@ def _format_address(address: TCPClientAddress, msg: Message) -> Result[None, Amp
 Mimics Zig's `catch` patterns:
 
 ```python
-def catch_or(result: Result[T, E], default: T) -> T:
+from typing import Callable
+
+def catch_or[T, E](result: Result[T, E], default: T) -> T:
     """
     Equivalent to Zig's `expr catch default_value`.
     Returns value if Ok, default if Err.
     """
-    if isinstance(result, Ok):
-        return result.value
-    return default
+    match result:
+        case Ok(value):
+            return value
+        case Err():
+            return default
 
 
-def catch_with(
+def catch_with[T, E](
     result: Result[T, E],
     handler: Callable[[E], Result[T, E]]
 ) -> Result[T, E]:
@@ -1004,13 +1086,15 @@ def catch_with(
     Equivalent to Zig's `expr catch |err| { ... }`.
     If Err, calls handler with the error.
     """
-    if isinstance(result, Ok):
-        return result
-    return handler(result.error)
+    match result:
+        case Ok():
+            return result
+        case Err(error):
+            return handler(error)
 
 
 # Usage - matching Zig's catch |err| switch pattern:
-def _get_from_pool(pool: Pool, strategy: AllocationStrategy) -> Result[Optional[Message], AmpeError]:
+def _get_from_pool(pool: Pool, strategy: AllocationStrategy) -> Result[Message | None, AmpeError]:
     """
     Equivalent to Zig's:
     const msg = rtr.pool.get(strategy) catch |err| {
@@ -1022,12 +1106,13 @@ def _get_from_pool(pool: Pool, strategy: AllocationStrategy) -> Result[Optional[
     """
     result = pool._get(strategy)
 
-    if isinstance(result, Err):
-        if result.error == AmpeError.POOL_EMPTY:
+    match result:
+        case Err(AmpeError.POOL_EMPTY):
             return Ok(None)  # Handle specific error
-        return result  # Propagate other errors
-
-    return result
+        case Err():
+            return result  # Propagate other errors
+        case Ok():
+            return result
 ```
 
 ## 12. API Boundary Pattern (Exceptions at Interface)
@@ -1130,11 +1215,9 @@ Automatically converts `Result` returns to exceptions:
 
 ```python
 from functools import wraps
-from typing import TypeVar, Callable, Union, overload
+from typing import Callable
 
-R = TypeVar('R')
-
-def public_api(func: Callable[..., Result[R, AmpeError]]) -> Callable[..., R]:
+def public_api[R](func: Callable[..., Result[R, AmpeError]]) -> Callable[..., R]:
     """
     Decorator for public API methods.
     Converts internal Result[T, AmpeError] to:
@@ -1146,13 +1229,11 @@ def public_api(func: Callable[..., Result[R, AmpeError]]) -> Callable[..., R]:
     """
     @wraps(func)
     def wrapper(*args, **kwargs) -> R:
-        result = func(*args, **kwargs)
-
-        if isinstance(result, Ok):
-            return result.value
-
-        # Convert error to exception at boundary
-        raise AmpeException.from_error(result.error)
+        match func(*args, **kwargs):
+            case Ok(value):
+                return value
+            case Err(error):
+                raise AmpeException.from_error(error)
 
     return wrapper
 ```
@@ -1165,7 +1246,7 @@ def public_api(func: Callable[..., Result[R, AmpeError]]) -> Callable[..., R]:
 class _ReactorInternal:
     """Internal implementation - uses Result pattern."""
 
-    def _get(self, strategy: AllocationStrategy) -> Result[Optional[Message], AmpeError]:
+    def _get(self, strategy: AllocationStrategy) -> Result[Message | None, AmpeError]:
         """Internal: get message from pool."""
         if self._shutdown_started:
             return Err(AmpeError.SHUTDOWN_STARTED)
@@ -1206,7 +1287,7 @@ class Ampe:
         self._internal = internal
 
     @public_api
-    def get(self, strategy: AllocationStrategy = AllocationStrategy.ALWAYS) -> Optional[Message]:
+    def get(self, strategy: AllocationStrategy = AllocationStrategy.ALWAYS) -> Message | None:
         """
         Get a message from the pool.
 
@@ -1230,7 +1311,7 @@ class Ampe:
         This method never fails - if pool is closed, message is destroyed.
         """
         # put() is void and cannot fail in Zig, so no @public_api needed
-        result = self._internal._put(holder)
+        _ = self._internal._put(holder)
         # Silently ignore errors (matches Zig behavior)
 
     @public_api
@@ -1245,10 +1326,11 @@ class Ampe:
             ShutdownException: If engine is shutting down
             AllocationFailedException: If memory allocation fails
         """
-        mchn = self._internal._create_channel_group()
-        if isinstance(mchn, Err):
-            return mchn  # Will be converted to exception by @public_api
-        return Ok(ChannelGroup(mchn.value))
+        match self._internal._create_channel_group():
+            case Err() as err:
+                return err  # Will be converted to exception by @public_api
+            case Ok(mchn):
+                return Ok(ChannelGroup(mchn))
 
 
 class ChannelGroup:
@@ -1277,7 +1359,7 @@ class ChannelGroup:
         return self._internal._post(holder)
 
     @public_api
-    def wait_receive(self, timeout_ns: int) -> Optional[Message]:
+    def wait_receive(self, timeout_ns: int) -> Message | None:
         """
         Wait for next message from queue.
 

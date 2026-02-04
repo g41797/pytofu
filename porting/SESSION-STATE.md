@@ -44,6 +44,22 @@
 - Complete implementation examples for `Ampe` and `ChannelGroup` classes
 - Exception hierarchy: `AmpeException`, `ShutdownException`, `AllocationFailedException`, etc.
 
+### Python 3.14+ Modernization
+- Set **target Python version: 3.14+** in pattern guide header
+- Updated all code examples to use modern Python syntax:
+  - **Section 1**: Added `match`/`case` structural pattern matching (PEP 634)
+  - **Section 2**: Converted to overview pointing to §11/§12 (removed redundancy)
+  - **Section 3**: Changed from `abc.ABC` to `typing.Protocol` (PEP 544)
+  - **Section 6**: Added note explaining why custom MailBox vs `queue.Queue`
+  - **Section 8**: Updated `Holder[T]` to use `T | None` syntax
+  - **Section 9**: Added `ExitStack.push()` vs `.callback()` clarification
+  - **Section 10**: Added comment explaining exception suppression in `ErrDefer`
+  - **Section 11**: PEP 695 type syntax (`type Result[T, E] = Ok[T] | Err[E]`)
+  - **Section 11**: Added **⚠️ Performance Warning** for `try_result` pattern
+  - **Section 11**: Added **Note on Allocator** explaining pool management purpose
+  - **Section 12**: Updated `@public_api` decorator with `match` and generics
+  - All sections: Replaced `Optional[T]` with `T | None`, `Union` with `|`
+
 ## Blockers / Open Issues
 - None.
 
