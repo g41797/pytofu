@@ -11,8 +11,8 @@
 - **Define Iterative Steps:** The AI will break down the full project architecture into small, manageable, and sequential coding tasks.
 - **Provide Test Cases:** The AI will define the purpose and logic for unit and integration tests based on the original project's tests.
 - **Serve as a Knowledge Base:** The AI will answer questions regarding the "tofu" architecture and its patterns.
-- **Advise on Development Environment:** The AI will provide guidance on local repository structure, virtual environments, and IDE setups (e.g., VS Code) for managing GitHub repositories.
-
+    - **Advise on Development Environment:** The AI will provide guidance on local repository structure, virtual environments, and IDE setups (e.g., VS Code) for managing GitHub repositories.
+    - **Confirm File Location:** The AI will always confirm the desired save location with the Author before creating any new files.
 ### Limitations (What the AI Will Not Do):
 - The AI will not write any Python implementation within the `src` folder or test code within the `tests` folder.
 - The AI will not modify any code files created by the programmer.

@@ -6,6 +6,8 @@
 2.  Read `porting/MASTER-PLAN.md` for the long-term roadmap.
 3.  Read `porting/NEGOTIATION-GUIDELINES.md` for the interaction protocol.
 4.  Read this file (`porting/SESSION-STATE.md`) for the immediate task.
+5.  Read `porting/FOR-PARTICIPANTS.md` for general instructions applicable to any participating AI.
+
 
 ## Current Phase
 - **Phase 1: Core Data Structures**
