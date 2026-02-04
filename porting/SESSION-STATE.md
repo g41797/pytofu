@@ -20,5 +20,7 @@
 - None.
 
 ## Next Step
-- **Action:** Provide the Author with the final confirmation to implement `src/tofu/opcode.py`.
-- **Reference:** `porting/specifications/opcode.md`.
+
+- **Action:** Negotiate the implementation of `src/tofu/opcode.py` in `porting/NEGOTIATION.md`.
+
+- **Reference:** `porting/specifications/opcode.md` and `porting/NEGOTIATION.md`.

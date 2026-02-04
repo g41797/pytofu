@@ -65,8 +65,8 @@ Add a submodule to repo
 
     run in root of the repo
 
-        git submodule add https://github.com/g41797/tofu.git /home/g41797/dev/root/github.com/g41797/pytofu/porting/repos/tofu
-        git submodule add https://github.com/g41797/mailbox.git /home/g41797/dev/root/github.com/g41797/pytofu/porting/repos/mailbox
-        git submodule add https://github.com/g41797/nats.git /home/g41797/dev/root/github.com/g41797/pytofu/porting/repos/nats
+        git submodule add https://github.com/g41797/tofu.git porting/repos/tofu
+        git submodule add https://github.com/g41797/mailbox.git porting/repos/mailbox
+        git submodule add https://github.com/g41797/nats.git porting/repos/nats
 
     
