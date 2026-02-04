@@ -19,19 +19,15 @@ Created two workflows:
   - Publishes to TestPyPI first                                                                                                                     
   - Then publishes to PyPI                                                                                                                          
                                                                                                                                                     
-  Setup steps on GitHub/PyPI:                                                                                                                       
-                                                                                                                                                    
-  1. Create GitHub environments (Settings → Environments):                                                                                          
-    - testpypi                                                                                                                                      
-    - pypi                                                                                                                                          
-  2. Configure PyPI Trusted Publishing (pypi.org → Account → Publishing):                                                                           
-    - Add pending publisher:                                                                                                                        
-        - Owner: g41797                                                                                                                             
-      - Repository: pytofu                                                                                                                          
-      - Workflow: publish.yml                                                                                                                       
-      - Environment: pypi                                                                                                                           
-  3. Configure TestPyPI (test.pypi.org → same steps):                                                                                               
-    - Environment: testpypi                                                                                                                         
+  
+    On PyPI, go to your project’s “Settings” -> “Publishing” section.
+    Use “Add a new trusted publisher.”
+    Select “GitHub Actions,” and enter:
+        Repository: g41797/pytofu
+        Workflow: .github/workflows/publish.yml
+    Save the trusted publisher.
+
+This links your repository to PyPI as a trusted publisher. Future runs of this workflow will be able to upload to PyPI using GitHub’s OIDC token. No code changes to your publish.yml are required unless your workflow filename or repository changes.
                                                                                                                                                     
   To publish:                                                                                                                                       
   1. Update version in pyproject.toml                                                                                                               
@@ -40,3 +36,37 @@ Created two workflows:
   4. Workflow runs automatically
 
   
+
+    On PyPI, go to your project’s “Settings” -> “Publishing” section.
+    Use “Add a new trusted publisher.”
+    Select “GitHub Actions,” and enter:
+        Repository: g41797/pytofu
+        Workflow: .github/workflows/publish.yml
+    Save the trusted publisher.
+
+This links your repository to PyPI as a trusted publisher. Future runs of this workflow will be able to upload to PyPI using GitHub’s OIDC token. No code changes to your publish.yml are required unless your workflow filename or repository changes.
+
+To continue after exiting Claude Code:                                                                                                            
+                                                     36% used                                                                                       
+  Option 1: Resume last conversation                                                                                                                
+  claude --continue                                                                                                                                 
+  or                                                                                                                                                
+  claude -c                                                                                                                                         
+                                                                                                                                                    
+  Option 2: Resume specific conversation                                                                                                            
+  claude --resume                                                                                                                                   
+  Shows list of recent conversations to pick from.                                                                                                  
+                                                                                                                                                    
+  Option 3: Start fresh in same directory                                                                                                           
+  claude                                                                                                                                            
+  Context from files remains, but conversation history starts new.               
+
+Add a submodule to repo
+
+    run in root of the repo
+
+        git submodule add https://github.com/g41797/tofu.git /home/g41797/dev/root/github.com/g41797/pytofu/porting/repos/tofu
+        git submodule add https://github.com/g41797/mailbox.git /home/g41797/dev/root/github.com/g41797/pytofu/porting/repos/mailbox
+        git submodule add https://github.com/g41797/nats.git /home/g41797/dev/root/github.com/g41797/pytofu/porting/repos/nats
+
+    
